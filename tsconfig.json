@@ -19,7 +19,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"] // ← KEMBALIKAN KE INI!
     }
   },
   "include": [

@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Buku {
+  id         Int          @id @default(autoincrement())
+  kodeBuku   String       @unique @db.VarChar(50)
+  judul      String       @db.VarChar(255)
+  penulis    String       @db.VarChar(100)
+  kategori   String       @db.VarChar(50)
+  deskripsi  String?
+  stok       Int          @default(1)
+  tahun      String?      @db.VarChar(10)
+  lokasiRak  String?      @db.VarChar(50)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  imageUrl   String?
+  peminjaman Peminjaman[]
+}
+
+model Pengunjung {
+  id               Int              @id @default(autoincrement())
+  nik              String?          @unique @db.VarChar(16)
+  nama             String           @db.VarChar(100)
+  alamat           String           @db.VarChar(255)
+  noHp             String           @db.VarChar(20)
+  tujuan           TujuanPengunjung @default(baca_di_tempat)
+  tanggalKunjungan DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  peminjaman       Peminjaman[]
+}
+
+model Peminjaman {
+  id             Int              @id @default(autoincrement())
+  pengunjungId   Int
+  bukuId         Int
+  tanggalPinjam  DateTime         @default(now())
+  durasiJam      Int              @default(2)
+  batasWaktu     DateTime
+  status         StatusPeminjaman @default(dipinjam)
+  tanggalKembali DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  buku           Buku             @relation(fields: [bukuId], references: [id])
+  pengunjung     Pengunjung       @relation(fields: [pengunjungId], references: [id])
+}
+
+model Pengaturan {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique @db.VarChar(50)
+  value     String   @db.VarChar(255)
+  updatedAt DateTime @updatedAt
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique @db.VarChar(50)
+  password  String   @db.VarChar(255)
+  nama      String   @db.VarChar(100)
+  email     String?  @db.VarChar(100)
+  imageUrl  String?  // tambahkan ini
+  role      Role     @default(admin)
+  lastReadAt DateTime? @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TujuanPengunjung {
+  baca_di_tempat
+  bawa_keluar
+}
+
+enum StatusPeminjaman {
+  dipinjam
+  kembali
+  terlambat
+}
+
+enum Role {
+  admin
+}
