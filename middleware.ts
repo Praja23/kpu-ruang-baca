@@ -3,35 +3,25 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-// 🔥 WAJIB: Pastikan JWT_SECRET ada di environment
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET environment variable is required");
-}
-const SECRET = new TextEncoder().encode(JWT_SECRET);
-
 // Halaman yang TIDAK perlu login (public)
 const PUBLIC_PATHS = [
   "/login",
   "/beranda",
   "/katalog",
-  "/buku", // halaman katalog publik
+  "/buku",
   "/api/auth/login",
-  "/api/buku", // API publik untuk katalog
-  "/api/pengunjung", // API publik untuk daftar pengunjung (jika diperlukan)
+  "/api/buku",
+  "/api/pengunjung",
   "/api/pengaturan/durasi",
 ];
 
 // Proteksi penuh untuk path ini (harus login)
-const PROTECTED_PATHS = [
-  "/admin", // semua halaman admin
-  "/api/admin", // semua API admin
-];
+const PROTECTED_PATHS = ["/admin", "/api/admin"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Lewati file statis (Next.js sudah handle, tapi ini tambahan)
+  // 1. Lewati file statis
   if (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
@@ -61,7 +51,16 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      await jwtVerify(token, SECRET);
+      // 🔥 Ambil JWT_SECRET di dalam fungsi, bukan di top-level
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        console.error("JWT_SECRET is not set");
+        // Jika tidak ada secret, redirect ke login
+        const loginUrl = new URL("/login", request.url);
+        return NextResponse.redirect(loginUrl);
+      }
+      const encodedSecret = new TextEncoder().encode(secret);
+      await jwtVerify(token, encodedSecret);
       return NextResponse.next();
     } catch (error) {
       // Token tidak valid atau expired
@@ -71,20 +70,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 4. Semua path lain (default) izinkan akses
   return NextResponse.next();
 }
 
-// Konfigurasi matcher (opsional, Next.js sudah punya default yang baik)
 export const config = {
-  matcher: [
-    /*
-     * Match semua request kecuali:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - api/test-db
-     */
-    "/((?!_next/static|_next/image|favicon.ico|api/test-db).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/test-db).*)"],
 };
