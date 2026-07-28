@@ -1,7 +1,6 @@
-// app/admin/laporan/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -93,6 +92,7 @@ interface LaporanData {
     daily: { labels: string[]; values: number[] };
     weekly: { labels: string[]; values: number[] };
     monthly: { labels: string[]; values: number[] };
+    yearly: { labels: string[]; values: number[] };
   };
   donut: {
     bacaDiTempat: number;
@@ -108,6 +108,15 @@ interface LaporanData {
     statusBg: string;
     statusColor: string;
   }[];
+  visitors: {
+    nama: string;
+    nik: string;
+    alamat: string;
+    noHp: string;
+    instansi: string;
+    tujuan: string;
+    tanggalKunjungan: string;
+  }[];
   period: {
     start: string;
     end: string;
@@ -120,9 +129,27 @@ export default function LaporanPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [chartType, setChartType] = useState<"daily" | "weekly" | "monthly">(
-    "daily",
-  );
+  const [chartType, setChartType] = useState<
+    "daily" | "weekly" | "monthly" | "yearly"
+  >("daily");
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  // Tooltip state
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    label: string;
+    value: number;
+    range: string;
+    x: number;
+    y: number;
+  }>({
+    visible: false,
+    label: "",
+    value: 0,
+    range: "",
+    x: 0,
+    y: 0,
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -153,6 +180,56 @@ export default function LaporanPage() {
 
   const formatNumber = (num: number) => num.toLocaleString("id-ID");
 
+  // Dapatkan rentang tanggal untuk tooltip
+  const getTooltipRange = (index: number, type: string) => {
+    if (!data) return "";
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (type === "daily") {
+      const dayOfWeek = today.getDay();
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    }
+
+    if (type === "weekly") {
+      const dayOfWeek = today.getDay();
+      const thisMonday = new Date(today);
+      thisMonday.setDate(
+        today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1),
+      );
+      const weekStart = new Date(thisMonday);
+      weekStart.setDate(thisMonday.getDate() - (3 - index) * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      return `${weekStart.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} - ${weekEnd.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
+    }
+
+    if (type === "monthly") {
+      const year = today.getFullYear();
+      const month = new Date(year, index, 1);
+      return month.toLocaleDateString("id-ID", {
+        month: "long",
+        year: "numeric",
+      });
+    }
+
+    if (type === "yearly") {
+      const currentYear = today.getFullYear();
+      const year = currentYear - 4 + index;
+      return year.toString();
+    }
+
+    return "";
+  };
+
   const barChartData = (labels: string[], values: number[]) => ({
     labels,
     datasets: [
@@ -177,11 +254,7 @@ export default function LaporanPage() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: C.onSurface,
-        titleColor: "#fff",
-        bodyColor: "#fff",
-        cornerRadius: 8,
-        padding: 12,
+        enabled: false, // Matikan tooltip bawaan Chart.js, pakai custom
       },
     },
     scales: {
@@ -237,16 +310,16 @@ export default function LaporanPage() {
 
   const handleExportExcel = () => {
     if (!data) return;
-    const { summary, activities } = data;
+    const { summary, visitors, period } = data;
 
     const summaryRows = [
       ["LAPORAN PERPUSTAKAAN"],
       [
-        `Periode: ${new Date(data.period.start).toLocaleDateString("id-ID", {
+        `Periode: ${new Date(period.start).toLocaleDateString("id-ID", {
           day: "numeric",
           month: "long",
           year: "numeric",
-        })} - ${new Date(data.period.end).toLocaleDateString("id-ID", {
+        })} - ${new Date(period.end).toLocaleDateString("id-ID", {
           day: "numeric",
           month: "long",
           year: "numeric",
@@ -260,14 +333,24 @@ export default function LaporanPage() {
       ["Rasio Pengembalian", `${summary.rasioPengembalian}%`],
       [],
       [],
-      ["RIWAYAT AKTIVITAS"],
-      ["Tanggal", "Nama Anggota", "Aktivitas", "Detail Buku", "Status"],
-      ...activities.map((a) => [
-        a.tanggal,
-        a.nama,
-        a.aktivitas,
-        a.buku,
-        a.status,
+      ["DATA PENGUNJUNG"],
+      [
+        "Nama",
+        "NIK",
+        "No HP",
+        "Instansi",
+        "Alamat",
+        "Tujuan",
+        "Tanggal Kunjungan",
+      ],
+      ...visitors.map((v) => [
+        v.nama,
+        v.nik,
+        v.noHp,
+        v.instansi,
+        v.alamat,
+        v.tujuan,
+        v.tanggalKunjungan,
       ]),
     ];
 
@@ -278,7 +361,7 @@ export default function LaporanPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `laporan-perpustakaan-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `laporan-pengunjung-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     showToast("Laporan berhasil diekspor", "success");
@@ -309,7 +392,6 @@ export default function LaporanPage() {
         `}</style>
 
         <div className="space-y-6 animate-fade-up">
-          {/* Header skeleton */}
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="space-y-2">
               <Skeleton className="h-8 w-64" />
@@ -322,23 +404,19 @@ export default function LaporanPage() {
             </div>
           </div>
 
-          {/* Stats skeleton */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-[110px]" />
             ))}
           </div>
 
-          {/* Charts skeleton */}
           <div className="grid grid-cols-12 gap-6">
             <Skeleton className="col-span-12 lg:col-span-8 h-[340px]" />
             <Skeleton className="col-span-12 lg:col-span-4 h-[340px]" />
           </div>
 
-          {/* Categories skeleton */}
           <Skeleton className="h-[200px]" />
 
-          {/* Table skeleton */}
           <div
             className="rounded-2xl border overflow-hidden"
             style={{ borderColor: C.outlineVariant }}
@@ -376,13 +454,17 @@ export default function LaporanPage() {
       ? data.chart.daily.labels
       : chartType === "weekly"
         ? data.chart.weekly.labels
-        : data.chart.monthly.labels;
+        : chartType === "monthly"
+          ? data.chart.monthly.labels
+          : data.chart.yearly.labels;
   const chartValues =
     chartType === "daily"
       ? data.chart.daily.values
       : chartType === "weekly"
         ? data.chart.weekly.values
-        : data.chart.monthly.values;
+        : chartType === "monthly"
+          ? data.chart.monthly.values
+          : data.chart.yearly.values;
 
   return (
     <>
@@ -391,8 +473,15 @@ export default function LaporanPage() {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes barGrow {
+          from { height: 0; }
+          to { height: var(--target-height); }
+        }
         .animate-fade-up {
           animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .animate-bar {
+          animation: barGrow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         .material-symbols-outlined {
           font-family: 'Material Symbols Outlined';
@@ -447,7 +536,7 @@ export default function LaporanPage() {
 
       {/* PRINT AREA */}
       <div id="print-area" style={{ display: "none" }}>
-        <h2>Laporan Perpustakaan</h2>
+        <h2>Laporan Data Pengunjung</h2>
         <p className="print-date">
           Periode:{" "}
           {new Date(data.period.start).toLocaleDateString("id-ID", {
@@ -480,25 +569,29 @@ export default function LaporanPage() {
             {data.summary.rasioPengembalian}%
           </p>
         </div>
-        <h3 style={{ marginBottom: 12 }}>Riwayat Aktivitas</h3>
+        <h3 style={{ marginBottom: 12 }}>Daftar Pengunjung</h3>
         <table>
           <thead>
             <tr>
-              <th>Tanggal</th>
-              <th>Nama Anggota</th>
-              <th>Aktivitas</th>
-              <th>Detail Buku</th>
-              <th>Status</th>
+              <th>Nama</th>
+              <th>NIK</th>
+              <th>No HP</th>
+              <th>Instansi</th>
+              <th>Alamat</th>
+              <th>Tujuan</th>
+              <th>Tanggal Kunjungan</th>
             </tr>
           </thead>
           <tbody>
-            {data.activities.map((a, idx) => (
+            {data.visitors.map((v, idx) => (
               <tr key={idx}>
-                <td>{a.tanggal}</td>
-                <td>{a.nama}</td>
-                <td>{a.aktivitas}</td>
-                <td>{a.buku}</td>
-                <td>{a.status}</td>
+                <td>{v.nama}</td>
+                <td>{v.nik}</td>
+                <td>{v.noHp}</td>
+                <td>{v.instansi}</td>
+                <td>{v.alamat}</td>
+                <td>{v.tujuan}</td>
+                <td>{v.tanggalKunjungan}</td>
               </tr>
             ))}
           </tbody>
@@ -693,39 +786,118 @@ export default function LaporanPage() {
                   className="text-xs mt-0.5"
                   style={{ color: C.onSurfaceVariant }}
                 >
-                  Visualisasi jumlah kunjungan harian / mingguan / bulanan
+                  Visualisasi jumlah kunjungan harian / mingguan / bulanan /
+                  tahunan
                 </p>
               </div>
               <div
-                className="inline-flex p-1 rounded-xl"
+                className="inline-flex p-1 rounded-xl flex-wrap justify-center gap-1"
                 style={{ background: C.surfaceContainerLow }}
               >
-                {(["daily", "weekly", "monthly"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setChartType(t)}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={
-                      chartType === t
-                        ? { background: C.primary, color: "#fff" }
-                        : { color: C.onSurfaceVariant }
-                    }
-                  >
-                    {t === "daily"
-                      ? "Harian"
-                      : t === "weekly"
-                        ? "Mingguan"
-                        : "Bulanan"}
-                  </button>
-                ))}
+                {(["daily", "weekly", "monthly", "yearly"] as const).map(
+                  (t) => (
+                    <button
+                      key={t}
+                      onClick={() => setChartType(t)}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      style={
+                        chartType === t
+                          ? { background: C.primary, color: "#fff" }
+                          : { color: C.onSurfaceVariant }
+                      }
+                    >
+                      {t === "daily"
+                        ? "Harian"
+                        : t === "weekly"
+                          ? "Mingguan"
+                          : t === "monthly"
+                            ? "Bulanan"
+                            : "Tahunan"}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
-            <div className="h-[260px]">
-              <Bar
-                data={barChartData(chartLabels, chartValues)}
-                options={barChartOptions}
-                key={chartType}
-              />
+            <div
+              ref={chartRef}
+              className="h-[260px] flex items-end gap-3 px-1 relative"
+            >
+              {chartValues.length > 0 ? (
+                chartValues.map((h, i) => {
+                  const max = Math.max(...chartValues, 1);
+                  const percent = Math.max((h / max) * 100, 6);
+                  const isActive = h === Math.max(...chartValues);
+                  const opacity = isActive
+                    ? 1
+                    : Math.max((h / max) * 0.7 + 0.1, 0.2);
+                  const bgColor = isActive
+                    ? `linear-gradient(180deg, ${C.primary} 0%, #991b1b 100%)`
+                    : `rgba(118, 0, 9, ${opacity})`;
+
+                  const range = getTooltipRange(i, chartType);
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex-1 relative group cursor-pointer"
+                      style={{ height: "100%" }}
+                      onMouseEnter={() =>
+                        setTooltip({
+                          visible: true,
+                          label: chartLabels[i],
+                          value: h,
+                          range: range,
+                          x: 0,
+                          y: 0,
+                        })
+                      }
+                      onMouseMove={(e) => {
+                        const rect = (
+                          e.currentTarget as HTMLElement
+                        ).getBoundingClientRect();
+                        setTooltip((prev) => ({
+                          ...prev,
+                          x: e.clientX,
+                          y: e.clientY - 72,
+                        }));
+                      }}
+                      onMouseLeave={() =>
+                        setTooltip((prev) => ({ ...prev, visible: false }))
+                      }
+                    >
+                      <div
+                        className="absolute bottom-0 left-0 right-0 rounded-t-lg transition-all duration-700 ease-out"
+                        style={{
+                          height: `${percent}%`,
+                          background: bgColor,
+                          boxShadow: isActive
+                            ? "0 4px 12px -2px rgba(118,0,9,0.35)"
+                            : "none",
+                          transitionDelay: `${i * 50}ms`,
+                        }}
+                      />
+                    </div>
+                  );
+                })
+              ) : (
+                <div
+                  className="w-full flex items-center justify-center text-sm"
+                  style={{ color: C.outline }}
+                >
+                  Tidak ada data
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between mt-3 px-1">
+              {chartLabels.map((d, i) => (
+                <span
+                  key={i}
+                  className="flex-1 text-center text-xs font-medium"
+                  style={{ color: C.outline }}
+                >
+                  {d}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -893,7 +1065,7 @@ export default function LaporanPage() {
           )}
         </div>
 
-        {/* Activities Table */}
+        {/* Activities Table (tetap tampil di halaman) */}
         <div
           className="bg-white rounded-2xl border overflow-hidden animate-fade-up"
           style={{
@@ -1002,6 +1174,28 @@ export default function LaporanPage() {
           </div>
         </div>
       </div>
+
+      {/* Tooltip */}
+      {tooltip.visible && (
+        <div
+          className="fixed pointer-events-none z-[100] px-4 py-2.5 rounded-xl text-sm font-medium text-white shadow-xl"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: "translateX(-50%)",
+            background: C.onSurface,
+            minWidth: "120px",
+          }}
+        >
+          <div className="font-bold">{tooltip.label}</div>
+          {tooltip.range && (
+            <div className="text-xs opacity-80">{tooltip.range}</div>
+          )}
+          <div className="text-sm mt-1">
+            <strong>{tooltip.value}</strong> pengunjung
+          </div>
+        </div>
+      )}
     </>
   );
 }

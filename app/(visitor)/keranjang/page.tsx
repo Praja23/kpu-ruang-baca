@@ -57,6 +57,7 @@ export default function KeranjangPage() {
     noHp: "",
     nik: "",
     alamat: "",
+    instansi: "", // ✅ TAMBAHKAN INI
   });
 
   useEffect(() => {
@@ -72,47 +73,47 @@ export default function KeranjangPage() {
     fetchDurasi();
   }, []);
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+ const handleCheckout = async (e: React.FormEvent) => {
+   e.preventDefault();
+   setLoading(true);
 
-    try {
-      const bukuIds = cart.map((item) => item.id);
-      const res = await fetch("/api/peminjaman/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, bukuIds }),
-      });
+   try {
+     const bukuIds = cart.map((item) => item.id);
+     const res = await fetch("/api/peminjaman/checkout", {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ ...form, bukuIds }),
+     });
 
-      const data = await res.json();
+     const data = await res.json();
 
-      if (data.success) {
-        clearCart();
+     if (!res.ok || !data.success) {
+       const errorMsg =
+         data.message || data.error || "Gagal memproses peminjaman";
+       showToast(errorMsg, "error");
+       setLoading(false);
+       return;
+     }
 
-        // 🔥 Ambil batas waktu dari response
-        let msg = `Berhasil meminjam ${cart.length} buku!`;
-        if (data.batasWaktu) {
-          const batas = new Date(data.batasWaktu);
-          // Format ke WIB (tanpa zona waktu agar konsisten)
-          const jam = batas.getHours().toString().padStart(2, "0");
-          const menit = batas.getMinutes().toString().padStart(2, "0");
-          msg += ` Harap kembalikan sebelum pukul ${jam}:${menit} WIB.`;
-        } else {
-          // Fallback jika batasWaktu tidak ada (misal error)
-          msg += ` Waktu pengembalian mengikuti aturan yang berlaku.`;
-        }
+     clearCart();
+     let msg = `Berhasil meminjam ${cart.length} buku!`;
+     if (data.batasWaktu) {
+       const batas = new Date(data.batasWaktu);
+       const jam = batas.getHours().toString().padStart(2, "0");
+       const menit = batas.getMinutes().toString().padStart(2, "0");
+       msg += ` Harap kembalikan sebelum pukul ${jam}:${menit} WIB.`;
+     } else {
+       msg += ` Waktu pengembalian mengikuti aturan yang berlaku.`;
+     }
 
-        showToast(msg, "success");
-        router.push("/beranda");
-      } else {
-        showToast(data.error || "Gagal memproses peminjaman", "error");
-      }
-    } catch (error) {
-      showToast("Terjadi kesalahan", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+     showToast(msg, "success");
+     router.push("/beranda");
+   } catch (error) {
+     showToast("Terjadi kesalahan", "error");
+   } finally {
+     setLoading(false);
+   }
+ };
 
   if (totalItems === 0) {
     return (
@@ -474,6 +475,26 @@ export default function KeranjangPage() {
                       />
                     </div>
 
+                    {/* ✅ TAMBAHKAN INPUT INSTANSI */}
+                    <div>
+                      <label
+                        className="block text-xs font-semibold mb-1"
+                        style={{ color: ON_SURFACE_VARIANT }}
+                      >
+                        Instansi / Asal (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={form.instansi}
+                        onChange={(e) =>
+                          setForm({ ...form, instansi: e.target.value })
+                        }
+                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#760009] outline-none"
+                        style={{ borderColor: OUTLINE_VARIANT }}
+                        placeholder="Contoh: KPU Kalteng, Bawaslu, Mahasiswa"
+                      />
+                    </div>
+
                     <div
                       className="space-y-4 border-t pt-6 mb-4"
                       style={{ borderColor: OUTLINE_VARIANT }}
@@ -557,7 +578,6 @@ export default function KeranjangPage() {
           }}
         >
           <div className="flex flex-col md:flex-row justify-center items-center px-4 md:px-10 max-w-[1280px] mx-auto gap-10">
-            {/* Kiri: Brand + Copyright */}
             <div className="flex flex-col items-center md:items-start text-center md:text-left shrink-0">
               <span
                 className="text-2xl font-bold"
@@ -571,7 +591,6 @@ export default function KeranjangPage() {
               </p>
             </div>
 
-            {/* Kanan: Baris ikon + label */}
             <div className="flex flex-nowrap items-center justify-center lg:justify-end gap-x-6">
               <a
                 href="https://kalteng.kpu.go.id"

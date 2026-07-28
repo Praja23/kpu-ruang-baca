@@ -1,4 +1,3 @@
-// app/admin/pengunjung/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -69,6 +68,7 @@ interface Pengunjung {
   nik: string | null;
   alamat: string;
   noHp: string;
+  instansi: string | null; // ✅ TAMBAHKAN
   tujuan: "baca_di_tempat" | "bawa_keluar";
   tanggalKunjungan: string;
   createdAt: string;
@@ -161,9 +161,19 @@ export default function CatatanPengunjungPage() {
   };
 
   const handleExport = () => {
-    const headers = ["Nama", "NIK", "No HP", "Alamat", "Tujuan", "Tanggal"];
+    // ✅ TAMBAHKAN "Instansi" di header
+    const headers = [
+      "Nama",
+      "Instansi",
+      "NIK",
+      "No HP",
+      "Alamat",
+      "Tujuan",
+      "Tanggal",
+    ];
     const rows = pengunjung.map((p) => [
       p.nama,
+      p.instansi || "-",
       p.nik || "",
       p.noHp,
       p.alamat,
@@ -632,6 +642,7 @@ export default function CatatanPengunjungPage() {
                   <tr>
                     {[
                       "Nama Pengunjung",
+                      "Instansi", // ✅ TAMBAHKAN
                       "NIK / Identitas",
                       "Kontak",
                       "Tujuan",
@@ -650,7 +661,7 @@ export default function CatatanPengunjungPage() {
                 <tbody>
                   {pengunjung.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-16">
+                      <td colSpan={6} className="text-center py-16">
                         <div className="flex flex-col items-center gap-3">
                           <Icon
                             name="person_search"
@@ -689,6 +700,12 @@ export default function CatatanPengunjungPage() {
                             >
                               {p.alamat}
                             </p>
+                          </td>
+                          <td
+                            className="px-6 py-4 text-sm"
+                            style={{ color: C.onSurfaceVariant }}
+                          >
+                            {p.instansi || "-"} {/* ✅ TAMBAHKAN */}
                           </td>
                           <td
                             className="px-6 py-4 text-sm font-medium"

@@ -4,6 +4,25 @@ import { prisma } from "@/lib/prisma";
 
 const KATEGORI_KEY = "kategori_list";
 
+// Helper validasi
+const validateKategoriName = (name: string) => {
+  if (!name || name.trim() === "") {
+    return {
+      valid: false,
+      field: "nama",
+      message: "Nama kategori wajib diisi",
+    };
+  }
+  if (name.trim().length > 50) {
+    return {
+      valid: false,
+      field: "nama",
+      message: "Nama kategori maksimal 50 karakter",
+    };
+  }
+  return { valid: true };
+};
+
 async function getKategoriList(): Promise<string[]> {
   const setting = await prisma.pengaturan.findUnique({
     where: { key: KATEGORI_KEY },
@@ -54,7 +73,7 @@ export async function GET() {
   } catch (error) {
     console.error("Error GET kategori:", error);
     return NextResponse.json(
-      { success: false, message: "Gagal mengambil kategori" },
+      { success: false, message: "Gagal mengambil data kategori" },
       { status: 500 },
     );
   }
@@ -63,21 +82,33 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { nama } = await request.json();
-    if (!nama || nama.trim() === "") {
+    const validation = validateKategoriName(nama);
+    if (!validation.valid) {
       return NextResponse.json(
-        { success: false, message: "Nama kategori wajib diisi" },
+        {
+          success: false,
+          field: validation.field,
+          message: validation.message,
+        },
         { status: 400 },
       );
     }
+
     const list = await getKategoriList();
     if (list.includes(nama.trim())) {
       return NextResponse.json(
-        { success: false, message: "Kategori sudah ada" },
+        {
+          success: false,
+          field: "nama",
+          message: `Kategori "${nama.trim()}" sudah ada`,
+        },
         { status: 400 },
       );
     }
+
     list.push(nama.trim());
     await saveKategoriList(list);
+
     return NextResponse.json({
       success: true,
       message: "Kategori berhasil ditambahkan",
@@ -95,32 +126,64 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { oldNama, newNama } = await request.json();
-    if (!oldNama || !newNama || newNama.trim() === "") {
+
+    if (!oldNama || oldNama.trim() === "") {
       return NextResponse.json(
-        { success: false, message: "Data tidak valid" },
+        {
+          success: false,
+          field: "oldNama",
+          message: "Nama kategori lama wajib diisi",
+        },
         { status: 400 },
       );
     }
+
+    const validation = validateKategoriName(newNama);
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          field: validation.field,
+          message: validation.message,
+        },
+        { status: 400 },
+      );
+    }
+
     const list = await getKategoriList();
-    const index = list.indexOf(oldNama);
+    const index = list.indexOf(oldNama.trim());
     if (index === -1) {
       return NextResponse.json(
-        { success: false, message: "Kategori tidak ditemukan" },
+        {
+          success: false,
+          field: "oldNama",
+          message: "Kategori tidak ditemukan",
+        },
         { status: 404 },
       );
     }
-    if (list.includes(newNama.trim()) && newNama.trim() !== oldNama) {
+
+    const newNameTrim = newNama.trim();
+    if (list.includes(newNameTrim) && newNameTrim !== oldNama.trim()) {
       return NextResponse.json(
-        { success: false, message: "Kategori dengan nama tersebut sudah ada" },
+        {
+          success: false,
+          field: "newNama",
+          message: `Kategori "${newNameTrim}" sudah ada`,
+        },
         { status: 400 },
       );
     }
-    list[index] = newNama.trim();
+
+    list[index] = newNameTrim;
     await saveKategoriList(list);
+
+    // Update semua buku dengan kategori lama ke kategori baru
     await prisma.buku.updateMany({
-      where: { kategori: oldNama },
-      data: { kategori: newNama.trim() },
+      where: { kategori: oldNama.trim() },
+      data: { kategori: newNameTrim },
     });
+
     return NextResponse.json({
       success: true,
       message: "Kategori berhasil diperbarui",
@@ -138,26 +201,31 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const nama = searchParams.get("nama");
-    if (!nama) {
+
+    if (!nama || nama.trim() === "") {
       return NextResponse.json(
-        { success: false, message: "Nama kategori wajib diisi" },
+        { success: false, field: "nama", message: "Nama kategori wajib diisi" },
         { status: 400 },
       );
     }
+
     const list = await getKategoriList();
-    const index = list.indexOf(nama);
+    const index = list.indexOf(nama.trim());
     if (index === -1) {
       return NextResponse.json(
-        { success: false, message: "Kategori tidak ditemukan" },
+        { success: false, field: "nama", message: "Kategori tidak ditemukan" },
         { status: 404 },
       );
     }
+
     list.splice(index, 1);
     await saveKategoriList(list);
+
     await prisma.buku.updateMany({
-      where: { kategori: nama },
+      where: { kategori: nama.trim() },
       data: { kategori: "Umum" },
     });
+
     return NextResponse.json({
       success: true,
       message: "Kategori berhasil dihapus",

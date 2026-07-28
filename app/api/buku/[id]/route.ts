@@ -1,5 +1,22 @@
+// app/api/buku/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
+// Helper validasi panjang (sama seperti di POST)
+const validateLength = (
+  value: string | undefined | null,
+  max: number,
+  fieldName: string,
+) => {
+  if (value && value.length > max) {
+    return {
+      valid: false,
+      field: fieldName,
+      message: `${fieldName} terlalu panjang, maksimal ${max} karakter`,
+    };
+  }
+  return { valid: true };
+};
 
 export async function GET(
   request: NextRequest,
@@ -9,14 +26,14 @@ export async function GET(
     const { id } = await params;
     const bukuId = parseInt(id);
     if (isNaN(bukuId)) {
-      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
+      return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
     }
     const buku = await prisma.buku.findUnique({
       where: { id: bukuId },
     });
     if (!buku) {
       return NextResponse.json(
-        { error: "Buku tidak ditemukan" },
+        { message: "Buku tidak ditemukan" },
         { status: 404 },
       );
     }
@@ -24,7 +41,7 @@ export async function GET(
   } catch (error) {
     console.error("Error GET detail buku:", error);
     return NextResponse.json(
-      { error: "Gagal mengambil data" },
+      { message: "Gagal mengambil data" },
       { status: 500 },
     );
   }
@@ -38,7 +55,7 @@ export async function PUT(
     const { id } = await params;
     const bukuId = parseInt(id);
     if (isNaN(bukuId)) {
-      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
+      return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
     }
 
     const body = await request.json();
@@ -52,40 +69,62 @@ export async function PUT(
       lokasiRak,
       imageUrl,
       deskripsi,
+      pdfUrl,
     } = body;
 
+    // Validasi wajib
     if (!kodeBuku || !judul || !penulis) {
       return NextResponse.json(
-        { error: "Kode Buku, Judul, dan Penulis wajib diisi" },
+        { message: "Kode Buku, Judul, dan Penulis wajib diisi" },
         { status: 400 },
       );
     }
 
-    // Cek apakah buku dengan id tersebut ada
+    // Validasi panjang field
+    const validations = [
+      validateLength(kodeBuku, 50, "Kode Buku"),
+      validateLength(judul, 255, "Judul Buku"),
+      validateLength(penulis, 100, "Penulis"),
+      validateLength(kategori, 50, "Kategori"),
+      validateLength(tahun, 10, "Tahun"),
+      validateLength(lokasiRak, 50, "Lokasi Rak"),
+      validateLength(deskripsi, 1000, "Deskripsi"),
+      validateLength(imageUrl, 500, "URL Gambar"),
+      validateLength(pdfUrl, 500, "URL PDF"),
+    ];
+
+    for (const v of validations) {
+      if (!v.valid) {
+        return NextResponse.json(
+          { field: v.field, message: v.message },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Cek apakah buku ada
     const existing = await prisma.buku.findUnique({
       where: { id: bukuId },
     });
     if (!existing) {
       return NextResponse.json(
-        { error: "Buku tidak ditemukan" },
+        { message: "Buku tidak ditemukan" },
         { status: 404 },
       );
     }
 
-    // CEK DUPLIKAT KODE BUKU (kecuali untuk buku itu sendiri)
-    const bukuDenganKodeSama = await prisma.buku.findFirst({
+    // Cek duplikat kode (kecuali dirinya sendiri)
+    const duplicate = await prisma.buku.findFirst({
       where: {
         kodeBuku: kodeBuku,
-        NOT: {
-          id: bukuId,
-        },
+        NOT: { id: bukuId },
       },
     });
-
-    if (bukuDenganKodeSama) {
+    if (duplicate) {
       return NextResponse.json(
         {
-          error: `Kode buku "${kodeBuku}" sudah digunakan oleh buku lain. Gunakan kode lain!`,
+          field: "kodeBuku",
+          message: `Kode buku "${kodeBuku}" sudah digunakan oleh buku lain.`,
         },
         { status: 400 },
       );
@@ -104,6 +143,7 @@ export async function PUT(
         lokasiRak: lokasiRak || null,
         imageUrl: imageUrl || null,
         deskripsi: deskripsi || null,
+        pdfUrl: pdfUrl || null,
       },
     });
 
@@ -114,17 +154,17 @@ export async function PUT(
     });
   } catch (error: any) {
     console.error("Error PUT buku:", error);
-    // Fallback jika terjadi error Prisma P2002 (unique constraint) meskipun sudah dicek
-    if (error.code === "P2002" && error.meta?.target?.includes("kodeBuku")) {
+    if (error.code === "P2002") {
       return NextResponse.json(
         {
-          error: "Kode buku sudah digunakan oleh buku lain. Gunakan kode lain!",
+          field: "kodeBuku",
+          message: "Kode buku sudah digunakan oleh buku lain.",
         },
         { status: 400 },
       );
     }
     return NextResponse.json(
-      { error: "Gagal memperbarui buku" },
+      { message: "Gagal memperbarui buku" },
       { status: 500 },
     );
   }
@@ -138,7 +178,7 @@ export async function DELETE(
     const { id } = await params;
     const bukuId = parseInt(id);
     if (isNaN(bukuId)) {
-      return NextResponse.json({ error: "ID tidak valid" }, { status: 400 });
+      return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
     }
 
     const existing = await prisma.buku.findUnique({
@@ -146,11 +186,12 @@ export async function DELETE(
     });
     if (!existing) {
       return NextResponse.json(
-        { error: "Buku tidak ditemukan" },
+        { message: "Buku tidak ditemukan" },
         { status: 404 },
       );
     }
 
+    // Hapus buku — Prisma otomatis set bukuId = NULL di Peminjaman
     await prisma.buku.delete({
       where: { id: bukuId },
     });
@@ -162,7 +203,7 @@ export async function DELETE(
   } catch (error) {
     console.error("Error DELETE buku:", error);
     return NextResponse.json(
-      { error: "Gagal menghapus buku" },
+      { message: "Gagal menghapus buku" },
       { status: 500 },
     );
   }

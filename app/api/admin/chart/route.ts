@@ -8,24 +8,36 @@ export async function GET(request: NextRequest) {
 
     let labels: string[] = [];
     let values: number[] = [];
+    let tooltips: string[] = []; // ✅ tambahan tooltip detail
 
     const now = new Date();
-    // Gunakan tanggal lokal (tanpa jam) untuk menentukan hari ini
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     if (range === "Minggu") {
-      // Hari ini adalah hari ke-? (0=Minggu, 1=Senin, ..., 6=Sabtu)
-      const dayOfWeek = today.getDay(); // 0 = Minggu
-      // Tentukan hari Senin minggu ini
+      const dayOfWeek = today.getDay();
       const monday = new Date(today);
       monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
       monday.setHours(0, 0, 0, 0);
 
       const dayNames = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+
       for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
-        // Buat rentang hari dalam UTC
         const start = new Date(
           Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0),
         );
@@ -43,6 +55,10 @@ export async function GET(request: NextRequest) {
         });
         labels.push(dayNames[i]);
         values.push(count);
+        // ✅ tooltip: "Senin, 20 Jul 2026"
+        tooltips.push(
+          `${dayNames[i]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`,
+        );
       }
     } else {
       // Mode Bulan: 4 minggu terakhir (Senin–Minggu)
@@ -53,7 +69,6 @@ export async function GET(request: NextRequest) {
       );
       thisMonday.setHours(0, 0, 0, 0);
 
-      // Buat 4 minggu ke belakang: minggu ke-1 = paling lama, minggu ke-4 = minggu ini
       const weeks: Date[] = [];
       for (let i = 3; i >= 0; i--) {
         const weekStart = new Date(thisMonday);
@@ -61,10 +76,25 @@ export async function GET(request: NextRequest) {
         weeks.push(weekStart);
       }
 
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Agu",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+
       for (let i = 0; i < weeks.length; i++) {
         const weekStart = weeks[i];
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 7);
+        weekEnd.setDate(weekEnd.getDate() + 6); // minggu berakhir Sabtu
 
         const startUTC = new Date(
           Date.UTC(
@@ -80,7 +110,7 @@ export async function GET(request: NextRequest) {
           Date.UTC(
             weekEnd.getFullYear(),
             weekEnd.getMonth(),
-            weekEnd.getDate(),
+            weekEnd.getDate() + 1,
             0,
             0,
             0,
@@ -97,12 +127,16 @@ export async function GET(request: NextRequest) {
         });
         labels.push(`Minggu ${i + 1}`);
         values.push(count);
+        // ✅ tooltip: "Minggu 1: 6-12 Jul 2026"
+        tooltips.push(
+          `Minggu ${i + 1}: ${weekStart.getDate()} ${months[weekStart.getMonth()]} - ${weekEnd.getDate()} ${months[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`,
+        );
       }
     }
 
     return NextResponse.json({
       success: true,
-      data: { labels, values },
+      data: { labels, values, tooltips }, // ✅ kirim tooltips
     });
   } catch (error) {
     console.error("Error fetching chart data:", error);

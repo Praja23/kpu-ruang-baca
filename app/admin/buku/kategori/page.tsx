@@ -130,9 +130,14 @@ export default function KategoriPage() {
       : null;
   const totalRak = totalKategori;
 
+  // ======== HANDLE ADD ========
   const handleAdd = async () => {
     if (!newKategori.trim()) {
       showToast("Nama kategori wajib diisi", "error");
+      return;
+    }
+    if (newKategori.trim().length > 50) {
+      showToast("Nama kategori maksimal 50 karakter", "error");
       return;
     }
     try {
@@ -151,13 +156,18 @@ export default function KategoriPage() {
         showToast(data.message || "Gagal menambah kategori", "error");
       }
     } catch (error) {
-      showToast("Terjadi kesalahan", "error");
+      showToast("Terjadi kesalahan pada server", "error");
     }
   };
 
+  // ======== HANDLE EDIT ========
   const handleEdit = async () => {
     if (!editData || !editData.new.trim()) {
       showToast("Nama kategori wajib diisi", "error");
+      return;
+    }
+    if (editData.new.trim().length > 50) {
+      showToast("Nama kategori maksimal 50 karakter", "error");
       return;
     }
     try {
@@ -178,10 +188,11 @@ export default function KategoriPage() {
         showToast(data.message || "Gagal mengedit kategori", "error");
       }
     } catch (error) {
-      showToast("Terjadi kesalahan", "error");
+      showToast("Terjadi kesalahan pada server", "error");
     }
   };
 
+  // ======== CONFIRM DELETE ========
   const confirmDelete = async () => {
     const { nama } = deleteModal;
     try {
@@ -198,7 +209,7 @@ export default function KategoriPage() {
         showToast(data.message || "Gagal menghapus kategori", "error");
       }
     } catch (error) {
-      showToast("Terjadi kesalahan", "error");
+      showToast("Terjadi kesalahan pada server", "error");
     }
   };
 

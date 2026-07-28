@@ -1,4 +1,3 @@
-// app/admin/buku/edit/[id]/page.tsx
 "use client";
 
 import {
@@ -61,16 +60,18 @@ export default function EditBukuPage() {
     lokasiRak: "",
     deskripsi: "",
     imageUrl: "",
+    pdfUrl: "", // ✅ tambahan PDF
   });
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [kategoriList, setKategoriList] = useState<string[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState<string>("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch data buku
   useEffect(() => {
     const fetchBuku = async () => {
       try {
@@ -87,8 +88,10 @@ export default function EditBukuPage() {
           lokasiRak: data.lokasiRak || "",
           deskripsi: data.deskripsi || "",
           imageUrl: data.imageUrl || "",
+          pdfUrl: data.pdfUrl || "", // ✅ tambahan
         });
         if (data.imageUrl) setPreview(data.imageUrl);
+        if (data.pdfUrl) setPdfFileName("dokumen.pdf");
       } catch (error) {
         console.error(error);
         showToast("Gagal memuat data buku", "error");
@@ -100,7 +103,6 @@ export default function EditBukuPage() {
     if (id) fetchBuku();
   }, [id, showToast, router]);
 
-  // Fetch kategori
   useEffect(() => {
     const fetchKategori = async () => {
       try {
@@ -116,7 +118,6 @@ export default function EditBukuPage() {
     fetchKategori();
   }, []);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -130,12 +131,32 @@ export default function EditBukuPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🔥 Upload file ke Cloudinary
-  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
+  const uploadFileToCloudinary = async (
+    file: File,
+    folder: string = "kpu-ruang-baca",
+  ): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || "Gagal upload file");
+    }
+
+    const data = await res.json();
+    return data.url;
+  };
+
+  const handleImageFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validasi tipe & ukuran
     const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!validTypes.includes(file.type)) {
       showToast("Hanya file JPG, PNG, WEBP, GIF yang diizinkan", "error");
@@ -148,27 +169,40 @@ export default function EditBukuPage() {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (data.url) {
-        setPreview(data.url);
-        setForm({ ...form, imageUrl: data.url });
-        showToast("Gambar berhasil diupload!", "success");
-      } else {
-        showToast(data.error || "Gagal upload gambar", "error");
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      showToast("Terjadi kesalahan saat upload", "error");
+      const url = await uploadFileToCloudinary(file);
+      setPreview(url);
+      setForm({ ...form, imageUrl: url });
+      showToast("Gambar berhasil diupload!", "success");
+    } catch (error: any) {
+      showToast(error.message || "Gagal upload gambar", "error");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePdfFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      showToast("Hanya file PDF yang diperbolehkan", "error");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Ukuran file maksimal 10MB", "error");
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const url = await uploadFileToCloudinary(file);
+      setForm({ ...form, pdfUrl: url });
+      setPdfFileName(file.name);
+      showToast("PDF berhasil diupload!", "success");
+    } catch (error: any) {
+      showToast(error.message || "Gagal upload PDF", "error");
+    } finally {
+      setUploadingPdf(false);
     }
   };
 
@@ -191,7 +225,32 @@ export default function EditBukuPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
+      // ✅ Validasi client-side
+      const errors = [];
+      if (form.kodeBuku && form.kodeBuku.length > 50) {
+        errors.push("Kode Buku maksimal 50 karakter");
+      }
+      if (form.judul && form.judul.length > 255) {
+        errors.push("Judul Buku maksimal 255 karakter");
+      }
+      if (form.penulis && form.penulis.length > 100) {
+        errors.push("Penulis maksimal 100 karakter");
+      }
+      if (form.kategori && form.kategori.length > 50) {
+        errors.push("Kategori maksimal 50 karakter");
+      }
+      if (form.lokasiRak && form.lokasiRak.length > 50) {
+        errors.push("Lokasi Rak maksimal 50 karakter");
+      }
+
+      if (errors.length > 0) {
+        showToast(errors.join("; "), "error");
+        setLoading(false);
+        return;
+      }
+
       const payload = {
         kodeBuku: form.kodeBuku,
         judul: form.judul,
@@ -201,34 +260,33 @@ export default function EditBukuPage() {
         stok: parseInt(form.stok as any) || 1,
         lokasiRak: form.lokasiRak,
         deskripsi: form.deskripsi,
-        imageUrl: form.imageUrl, // ← URL Cloudinary
+        imageUrl: form.imageUrl || null,
+        pdfUrl: form.pdfUrl || null,
       };
+
       const res = await fetch(`/api/buku/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const data = await res.json();
+
       if (res.ok && data.success) {
         showToast(`Buku "${data.data.judul}" berhasil diperbarui!`, "success");
         router.push("/admin/buku");
       } else {
-        showToast(data.error || "Gagal memperbarui buku", "error");
+        // ✅ Gunakan data.message (dari API) sebagai prioritas, fallback ke data.error
+        const errorMsg = data.message || data.error || "Gagal memperbarui buku";
+        showToast(errorMsg, "error");
       }
     } catch (error) {
-      showToast("Terjadi kesalahan", "error");
+      console.error("Error:", error);
+      showToast("Terjadi kesalahan pada server", "error");
     } finally {
       setLoading(false);
     }
   };
-
-  if (fetching) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        Memuat data...
-      </div>
-    );
-  }
 
   return (
     <>
@@ -476,7 +534,64 @@ export default function EditBukuPage() {
           display: flex; 
           gap: 24px; 
           align-items: flex-start; 
+          flex-wrap: wrap;
         }
+        .uploadBox {
+          flex: 1;
+          min-width: 200px;
+          border: 2px dashed #d8c2be;
+          border-radius: 12px;
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: #eef3fb;
+          cursor: pointer;
+          transition: background 0.15s;
+          position: relative;
+        }
+        .uploadBox:hover { background: #e6ecf6; }
+        .uploadBox.disabled { opacity: 0.6; pointer-events: none; }
+        .uploadBox .material-symbols-outlined { font-size: 32px !important; color: #760009; margin-bottom: 8px; }
+        .uploadBox .title { font-size: 14px; color: #0b1c30; font-weight: 600; margin: 0; }
+        .uploadBox .sub { font-family: 'Work Sans', sans-serif; font-size: 11px; color: #59413e; opacity: .7; margin: 4px 0 0; }
+        .uploadBox .file-name { font-size: 12px; color: #760009; font-weight: 600; margin-top: 6px; }
+        .uploadBox .pickBtn { 
+          margin-top: 12px; 
+          padding: 6px 18px; 
+          background: #0b1c30; 
+          color: #f8f9ff; 
+          border-radius: 9999px; 
+          font-size: 11px; 
+          font-weight: 700; 
+          letter-spacing: .06em; 
+          transition: background 0.15s;
+        }
+        .uploadBox:hover .pickBtn { background: #760009; }
+        .uploadBox .uploading-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0,0,0,0.5);
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 12px;
+          gap: 8px;
+          z-index: 10;
+        }
+        .uploadBox .uploading-overlay .material-symbols-outlined {
+          font-size: 24px !important;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
         .previewBox { 
           width: 160px; 
           height: 224px; 
@@ -518,58 +633,6 @@ export default function EditBukuPage() {
           height: 100%; 
           object-fit: cover; 
         }
-        .dropzone { 
-          flex: 1; 
-          border: 2px dashed #d8c2be; 
-          border-radius: 12px; 
-          padding: 32px; 
-          display: flex; 
-          flex-direction: column; 
-          align-items: center; 
-          justify-content: center; 
-          background: #eef3fb; 
-          cursor: pointer; 
-          transition: background 0.15s;
-        }
-        .dropzone:hover { 
-          background: #e6ecf6; 
-        }
-        .dropzone.disabled {
-          opacity: 0.6;
-          pointer-events: none;
-        }
-        .dropzone .material-symbols-outlined { 
-          font-size: 36px !important; 
-          color: #760009; 
-          margin-bottom: 12px; 
-        }
-        .dropzone .title { 
-          font-size: 16px; 
-          color: #0b1c30; 
-          font-weight: 600; 
-          margin: 0; 
-        }
-        .dropzone .sub { 
-          font-family: 'Work Sans', sans-serif; 
-          font-size: 12px; 
-          color: #59413e; 
-          opacity: .7; 
-          margin: 4px 0 0; 
-        }
-        .pickBtn { 
-          margin-top: 16px; 
-          padding: 8px 24px; 
-          background: #0b1c30; 
-          color: #f8f9ff; 
-          border-radius: 9999px; 
-          font-size: 12px; 
-          font-weight: 700; 
-          letter-spacing: .06em; 
-          transition: background 0.15s;
-        }
-        .dropzone:hover .pickBtn { 
-          background: #760009; 
-        }
 
         .actions { 
           display: flex; 
@@ -590,26 +653,21 @@ export default function EditBukuPage() {
           align-items: center; 
           gap: 8px; 
         }
-        .btn:active { 
-          transform: scale(.96); 
-        }
+        .btn:active { transform: scale(.96); }
         .btn.outline { 
           border: 2px solid #760009; 
           color: #760009; 
           background: transparent; 
         }
-        .btn.outline:hover { 
-          background: rgba(118,0,9,.05); 
-        }
+        .btn.outline:hover { background: rgba(118,0,9,.05); }
         .btn.primary { 
           background: #760009; 
           color: #fff; 
           padding: 12px 40px; 
           box-shadow: 0 6px 16px rgba(118,0,9,.25); 
         }
-        .btn.primary:hover { 
-          filter: brightness(1.1); 
-        }
+        .btn.primary:hover { filter: brightness(1.1); }
+        .btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .crumbs { 
           display: flex; 
@@ -621,16 +679,9 @@ export default function EditBukuPage() {
           font-size: 12px; 
           letter-spacing: .05em; 
         }
-        .crumbs a:hover { 
-          color: #760009; 
-        }
-        .crumbs .cur { 
-          color: #760009; 
-          font-weight: 600; 
-        }
-        .crumbs .material-symbols-outlined { 
-          font-size: 16px !important; 
-        }
+        .crumbs a:hover { color: #760009; }
+        .crumbs .cur { color: #760009; font-weight: 600; }
+        .crumbs .material-symbols-outlined { font-size: 16px !important; }
         .foot { 
           margin-top: 40px; 
           display: flex; 
@@ -641,26 +692,15 @@ export default function EditBukuPage() {
           color: rgba(89,65,62,.55); 
           padding-bottom: 40px; 
         }
-        .foot a:hover { 
-          color: #760009; 
-        }
-        .foot .links { 
-          display: flex; 
-          gap: 16px; 
-        }
+        .foot a:hover { color: #760009; }
+        .foot .links { display: flex; gap: 16px; }
         @media (max-width: 900px) { 
-          .grid { 
-            grid-template-columns: 1fr; 
-          } 
-          .uploadRow { 
-            flex-direction: column; 
-            align-items: center; 
-          } 
+          .grid { grid-template-columns: 1fr; } 
+          .uploadRow { flex-direction: column; align-items: stretch; }
         }
       `}</style>
 
       <div className="flex flex-col">
-        {/* Tombol Kembali di pojok kiri atas */}
         <div className="mb-4">
           <Link
             href="/admin/buku"
@@ -840,7 +880,7 @@ export default function EditBukuPage() {
                     )}
                   </div>
                   <label
-                    className={`dropzone ${uploading ? "disabled" : ""}`}
+                    className={`uploadBox ${uploading ? "disabled" : ""}`}
                     htmlFor="file-upload"
                   >
                     <input
@@ -848,12 +888,12 @@ export default function EditBukuPage() {
                       type="file"
                       accept="image/*"
                       hidden
-                      onChange={handleFile}
+                      onChange={handleImageFile}
                       disabled={uploading}
                     />
                     <Icon name="cloud_upload" />
-                    <p className="title">Tarik file atau klik untuk unggah</p>
-                    <p className="sub">Format: JPG, PNG, WEBP (Maks. 2MB)</p>
+                    <p className="title">Klik untuk unggah sampul</p>
+                    <p className="sub">JPG, PNG, WEBP (Maks. 2MB)</p>
                     <span className="pickBtn">
                       {uploading ? "Mengunggah..." : "Pilih File"}
                     </span>
@@ -866,6 +906,59 @@ export default function EditBukuPage() {
                   </p>
                 )}
               </div>
+
+              {/* Upload PDF */}
+              <div className="field full" style={{ gap: 12 }}>
+                <label>Dokumen PDF (Opsional)</label>
+                <div className="uploadRow">
+                  <div className="flex-1 min-w-[200px] flex items-center gap-4">
+                    <div className="flex-1">
+                      <label
+                        className={`uploadBox ${uploadingPdf ? "disabled" : ""}`}
+                        htmlFor="pdf-upload"
+                      >
+                        <input
+                          id="pdf-upload"
+                          type="file"
+                          accept=".pdf"
+                          hidden
+                          onChange={handlePdfFile}
+                          disabled={uploadingPdf}
+                        />
+                        <Icon name="description" />
+                        <p className="title">Unggah file PDF</p>
+                        <p className="sub">Maks. 10MB</p>
+                        <span className="pickBtn">
+                          {uploadingPdf ? "Mengupload..." : "Pilih PDF"}
+                        </span>
+                      </label>
+                      {uploadingPdf && (
+                        <div
+                          className="flex items-center gap-2 mt-2 text-sm"
+                          style={{ color: C.primary }}
+                        >
+                          <span
+                            className="material-symbols-outlined animate-spin"
+                            style={{ fontSize: 18 }}
+                          >
+                            sync
+                          </span>
+                          Mengupload PDF...
+                        </div>
+                      )}
+                      {form.pdfUrl && !uploadingPdf && (
+                        <div
+                          className="flex items-center gap-2 mt-2 text-xs font-medium"
+                          style={{ color: "#16a34a" }}
+                        >
+                          <Icon name="check_circle" style={{ fontSize: 16 }} />
+                          PDF terupload: {pdfFileName || "dokumen.pdf"}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="actions">
@@ -875,7 +968,7 @@ export default function EditBukuPage() {
               <button
                 type="submit"
                 className="btn primary"
-                disabled={loading || uploading}
+                disabled={loading || uploading || uploadingPdf}
               >
                 <Icon name="save" />
                 {loading ? "Menyimpan..." : "Perbarui Data"}

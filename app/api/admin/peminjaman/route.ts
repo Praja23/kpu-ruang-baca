@@ -1,4 +1,3 @@
-// app/api/admin/peminjaman/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -32,6 +31,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { pengunjung: { nama: { contains: search, mode: "insensitive" } } },
+        { pengunjung: { instansi: { contains: search, mode: "insensitive" } } },
         { buku: { judul: { contains: search, mode: "insensitive" } } },
         { buku: { kodeBuku: { contains: search, mode: "insensitive" } } },
       ];
@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
         take: limit,
         include: {
           pengunjung: {
-            select: { nama: true, noHp: true },
+            select: { nama: true, noHp: true, instansi: true },
           },
           buku: {
-            select: { judul: true, kategori: true, kodeBuku: true }, // ✅ tambah kodeBuku
+            select: { judul: true, kategori: true, kodeBuku: true },
           },
         },
       }),
@@ -75,8 +75,9 @@ export async function GET(request: NextRequest) {
     const formattedData = data.map((item) => ({
       id: item.id,
       pengunjung: item.pengunjung?.nama || "Tidak diketahui",
+      instansi: item.pengunjung?.instansi || null,
       noHp: item.pengunjung?.noHp || "-",
-      buku: item.buku?.judul || "Tidak diketahui",
+      buku: item.buku?.judul || item.judulBuku || "Buku telah dihapus", // ✅ PRIORITAS: judulBuku jika buku null
       kodeBuku: item.buku?.kodeBuku || "-",
       kategori: item.buku?.kategori || "Umum",
       tanggalPinjam: item.tanggalPinjam,

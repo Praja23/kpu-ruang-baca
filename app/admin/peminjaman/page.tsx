@@ -1,4 +1,3 @@
-// app/admin/peminjaman/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -68,6 +67,7 @@ interface Peminjaman {
   id: number;
   pengunjung: string;
   noHp: string;
+  instansi: string | null; // ✅ TAMBAHKAN
   buku: string;
   kodeBuku: string;
   kategori: string;
@@ -214,9 +214,11 @@ export default function ManajemenPeminjamanPage() {
         return;
       }
 
+      // ✅ TAMBAHKAN "Instansi" di header
       const headers = [
         "No",
         "Pengunjung",
+        "Instansi",
         "No HP",
         "Kode Buku",
         "Judul Buku",
@@ -227,6 +229,7 @@ export default function ManajemenPeminjamanPage() {
       const rows = allData.map((item: any, index: number) => [
         index + 1,
         item.pengunjung || "-",
+        item.instansi || "-",
         item.noHp || "-",
         item.kodeBuku || "-",
         item.buku || "-",
@@ -775,6 +778,7 @@ export default function ManajemenPeminjamanPage() {
                     {[
                       "No",
                       "Pengunjung",
+                      "Instansi", // ✅ TAMBAHKAN
                       "No HP",
                       "Kode Buku",
                       "Judul Buku",
@@ -798,7 +802,7 @@ export default function ManajemenPeminjamanPage() {
                 <tbody>
                   {data.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-16">
+                      <td colSpan={10} className="text-center py-16">
                         <div className="flex flex-col items-center gap-3">
                           <Icon
                             name="sync_alt"
@@ -842,6 +846,12 @@ export default function ManajemenPeminjamanPage() {
                             className="px-6 py-4 text-sm"
                             style={{ color: C.onSurfaceVariant }}
                           >
+                            {item.instansi || "-"} {/* ✅ TAMBAHKAN */}
+                          </td>
+                          <td
+                            className="px-6 py-4 text-sm"
+                            style={{ color: C.onSurfaceVariant }}
+                          >
                             {item.noHp}
                           </td>
                           <td
@@ -855,7 +865,7 @@ export default function ManajemenPeminjamanPage() {
                               className="text-sm font-medium"
                               style={{ color: C.onSurface }}
                             >
-                              {item.buku}
+                              {item.buku || "Buku telah dihapus"}
                             </p>
                             <p
                               className="text-xs mt-0.5"

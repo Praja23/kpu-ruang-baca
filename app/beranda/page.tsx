@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useToast } from "@/app/context/ToastContext";
 
 const PRIMARY = "#760009";
 const PRIMARY_DARK = "#4d0006";
@@ -45,12 +46,6 @@ function Icon({
 
 /* ============================================================
    ORNAMEN / DEKORASI
-   ------------------------------------------------------------
-   Motif stilasi lama (kaét, batang garing, enggang, mandau pattern)
-   sudah dihapus. Untuk representasi Dayak Kalimantan Tengah kami
-   memakai satu gambar Talawang 3D asli sebagai focal ornament, dan
-   dekorasi lain memakai elemen geometris profesional (garis halus,
-   gradasi, chip warna) agar tetap bersih & elegan.
    ============================================================ */
 
 // URL gambar Talawang 3D (letakkan file talawang-3d.jpg di /public/images/)
@@ -264,11 +259,13 @@ function Reveal({
    ============================================================ */
 export default function BerandaPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [form, setForm] = useState({
     nama: "",
     noHp: "",
     nik: "",
     alamat: "",
+    instansi: "", // ✅ TAMBAHKAN INI
     tujuan: "baca_di_tempat",
   });
   const [loading, setLoading] = useState(false);
@@ -284,32 +281,36 @@ export default function BerandaPage() {
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        alert(errorData.error || "Gagal mendaftar");
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        // Ambil pesan error dari API
+        const errorMsg = data.message || "Gagal mendaftar";
+        showToast(errorMsg, "error");
         setLoading(false);
         return;
       }
 
-      const data = await res.json();
-      if (data.success) {
-        setSuccess(true);
-        setTimeout(() => {
-          setSuccess(false);
-          setForm({
-            nama: "",
-            noHp: "",
-            nik: "",
-            alamat: "",
-            tujuan: "baca_di_tempat",
-          });
-        }, 3000);
-      } else {
-        alert(data.error || "Gagal mendaftar");
-      }
+      // Jika sukses
+      setSuccess(true);
+      showToast(
+        "Pendaftaran berhasil! Silakan masuk ke area perpustakaan.",
+        "success",
+      );
+      setTimeout(() => {
+        setSuccess(false);
+        setForm({
+          nama: "",
+          noHp: "",
+          nik: "",
+          alamat: "",
+          instansi: "",
+          tujuan: "baca_di_tempat",
+        });
+      }, 3000);
     } catch (error) {
       console.error("Error:", error);
-      alert("Terjadi kesalahan jaringan");
+      showToast("Terjadi kesalahan jaringan", "error");
     } finally {
       setLoading(false);
     }
@@ -810,7 +811,7 @@ export default function BerandaPage() {
                       height: 320,
                       top: -100,
                       right: -100,
-                      opacity: 0.10,
+                      opacity: 0.1,
                       zIndex: 0,
                     }}
                   />
@@ -823,7 +824,7 @@ export default function BerandaPage() {
                     <img
                       alt="Rak penyimpanan buku ruang baca JDIH KPU Kalteng"
                       className="w-full h-full object-cover"
-                      src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1000&auto=format&fit=crop"
+                      src="/images/rak 1.jpeg"
                     />
                     <div
                       className="absolute bottom-4 left-4 right-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
@@ -1203,31 +1204,31 @@ export default function BerandaPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
                 {[
                   {
-                    src: "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=800&auto=format&fit=crop",
+                    src: "/images/rak 2.jpeg",
                     alt: "Rak buku hukum tertata",
                     label: "Rak koleksi",
                     span: "md:col-span-2 md:row-span-2 aspect-square",
                   },
                   {
-                    src: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop",
+                    src: "/images/andre.jpeg",
                     alt: "Buku terbuka di meja kayu",
                     label: "Baca di tempat",
                     span: "aspect-square",
                   },
                   {
-                    src: "https://images.unsplash.com/photo-1517971071642-34a2d3ecc9cd?q=80&w=800&auto=format&fit=crop",
+                    src: "/images/tenang.jpeg",
                     alt: "Area santai luar ruangan",
                     label: "Area santai",
                     span: "aspect-square",
                   },
                   {
-                    src: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop",
+                    src: "/images/hukum.jpeg",
                     alt: "Buku hukum tersusun rapi",
                     label: "Koleksi hukum",
                     span: "aspect-square",
                   },
                   {
-                    src: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?q=80&w=800&auto=format&fit=crop",
+                    src: "/images/santai.jpeg",
                     alt: "Ruang belajar tenang",
                     label: "Ruang tenang",
                     span: "aspect-square",
@@ -1425,7 +1426,7 @@ export default function BerandaPage() {
             </div>
           </section>
 
-          {/* ======================= PENDAFTARAN PENGUNJUNG (fungsional, tidak diubah) ======================= */}
+          {/* ======================= PENDAFTARAN PENGUNJUNG ======================= */}
           <section
             id="pendaftaran"
             className="scroll-mt-20 py-20 md:py-28 px-4 md:px-8 relative overflow-hidden"
@@ -1669,6 +1670,34 @@ export default function BerandaPage() {
                             }
                             placeholder="Alamat lengkap sesuai KTP"
                             className="w-full pl-12 pr-4 py-3 bg-white border rounded-xl outline-none resize-none transition-all text-sm"
+                            style={{ borderColor: OUTLINE_VARIANT }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* ✅ TAMBAHKAN INPUT INSTANSI */}
+                      <div className="space-y-2">
+                        <label
+                          className="block ml-1 text-[11px] font-semibold uppercase tracking-wider"
+                          style={{ color: ON_SURFACE_VARIANT }}
+                        >
+                          Instansi / Asal (Opsional)
+                        </label>
+                        <div className="relative">
+                          <span
+                            className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined"
+                            style={{ color: OUTLINE, fontSize: 20 }}
+                          >
+                            business
+                          </span>
+                          <input
+                            type="text"
+                            value={form.instansi}
+                            onChange={(e) =>
+                              setForm({ ...form, instansi: e.target.value })
+                            }
+                            placeholder="Contoh: KPU Kalteng, Bawaslu, Mahasiswa"
+                            className="w-full pl-12 pr-4 py-3 bg-white border rounded-xl outline-none transition-all text-sm"
                             style={{ borderColor: OUTLINE_VARIANT }}
                           />
                         </div>

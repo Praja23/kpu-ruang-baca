@@ -51,6 +51,7 @@ interface Buku {
   stok: number;
   lokasiRak: string | null;
   imageUrl: string | null;
+  pdfUrl: string | null; // ✅ tambahan
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +66,7 @@ export default function DetailBukuPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [durasiPinjam, setDurasiPinjam] = useState(2);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
 
   useEffect(() => {
     const fetchDurasi = async () => {
@@ -382,6 +384,82 @@ export default function DetailBukuPage() {
                 </div>
               )}
 
+              {/* ✅ PDF PREVIEW & DOWNLOAD */}
+              {buku.pdfUrl && (
+                <div
+                  className="border rounded-2xl overflow-hidden"
+                  style={{
+                    borderColor: OUTLINE_VARIANT,
+                    backgroundColor: SURFACE_CONTAINER_LOW,
+                  }}
+                >
+                  <div
+                    className="p-5 flex flex-wrap items-center justify-between gap-3 border-b"
+                    style={{ borderColor: OUTLINE_VARIANT }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name="description" style={{ color: PRIMARY }} />
+                      <h3
+                        className="font-bold text-base"
+                        style={{
+                          fontFamily: "Plus Jakarta Sans",
+                          color: ON_SURFACE,
+                        }}
+                      >
+                        Dokumen Terkait
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!showPdfPreview && (
+                        <button
+                          onClick={() => setShowPdfPreview(true)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          style={{
+                            background: `linear-gradient(135deg, ${PRIMARY}, #a3121b)`,
+                            boxShadow: "0 4px 12px -4px rgba(118,0,9,0.3)",
+                          }}
+                        >
+                          <Icon name="visibility" style={{ fontSize: 18 }} />
+                          Preview
+                        </button>
+                      )}
+                      <a
+                        href={buku.pdfUrl}
+                        download
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-all hover:bg-white"
+                        style={{
+                          borderColor: PRIMARY,
+                          color: PRIMARY,
+                          backgroundColor: "transparent",
+                        }}
+                      >
+                        <Icon name="download" style={{ fontSize: 18 }} />
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                  {showPdfPreview && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowPdfPreview(false)}
+                        className="absolute top-3 right-3 z-10 p-1.5 bg-white/90 rounded-full shadow-lg hover:bg-white transition-colors"
+                      >
+                        <Icon name="close" style={{ fontSize: 20 }} />
+                      </button>
+                      <div
+                        style={{ height: "500px", backgroundColor: "#f0f0f0" }}
+                      >
+                        <iframe
+                          src={`${buku.pdfUrl}#toolbar=0&navpanes=0`}
+                          className="w-full h-full"
+                          title="PDF Preview"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div
                 className="p-6 rounded-xl border-l-4"
                 style={{
@@ -440,7 +518,6 @@ export default function DetailBukuPage() {
           }}
         >
           <div className="flex flex-col md:flex-row justify-center items-center px-4 md:px-10 max-w-[1280px] mx-auto gap-10">
-            {/* Kiri: Brand + Copyright */}
             <div className="flex flex-col items-center md:items-start text-center md:text-left shrink-0">
               <span
                 className="text-2xl font-bold"
@@ -453,8 +530,6 @@ export default function DetailBukuPage() {
                 Dilindungi.
               </p>
             </div>
-
-            {/* Kanan: Baris ikon + label */}
             <div className="flex flex-nowrap items-center justify-center lg:justify-end gap-x-6">
               <a
                 href="https://kalteng.kpu.go.id"
@@ -473,7 +548,6 @@ export default function DetailBukuPage() {
                   kalteng.kpu.go.id
                 </span>
               </a>
-
               <a
                 href="https://www.instagram.com/kpu_kalteng?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
                 target="_blank"
@@ -491,7 +565,6 @@ export default function DetailBukuPage() {
                   kpu_kalteng
                 </span>
               </a>
-
               <a
                 href="https://www.facebook.com/share/1BwA5xvDpq/?mibextid=wwXIfr"
                 target="_blank"
@@ -517,7 +590,6 @@ export default function DetailBukuPage() {
                   KPU Provinsi Kalimantan Tengah
                 </span>
               </a>
-
               <a
                 href="https://x.com/KPU_KaltengProv?s=20"
                 target="_blank"
@@ -535,7 +607,6 @@ export default function DetailBukuPage() {
                   KPU KaltengProv
                 </span>
               </a>
-
               <a
                 href="https://jdih.kpu.go.id/kalteng/"
                 target="_blank"

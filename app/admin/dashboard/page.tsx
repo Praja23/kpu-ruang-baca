@@ -140,9 +140,11 @@ export default function AdminDashboard() {
   const [chartData, setChartData] = useState<{
     labels: string[];
     values: number[];
+    tooltips: string[];
   }>({
     labels: DAYS,
     values: [0, 0, 0, 0, 0, 0, 0],
+    tooltips: [],
   });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,8 +177,13 @@ export default function AdminDashboard() {
 
       const chartRes = await fetch(`/api/admin/chart?range=${range}`);
       const chartJson = await chartRes.json();
-      if (chartJson.success) setChartData(chartJson.data);
-
+      if (chartJson.success) {
+        setChartData({
+          labels: chartJson.data.labels,
+          values: chartJson.data.values,
+          tooltips: chartJson.data.tooltips || [], // ✅ ambil tooltips
+        });
+      }
       const actRes = await fetch(
         `/api/admin/activities?page=${page}&limit=${itemsPerPage}`,
       );
@@ -462,7 +469,8 @@ export default function AdminDashboard() {
                           onMouseEnter={() =>
                             setTooltip({
                               visible: true,
-                              label: chartData.labels[i],
+                              label:
+                                chartData.tooltips[i] || chartData.labels[i], // ✅ pakai tooltips
                               value: h,
                               x: 0,
                               y: 0,

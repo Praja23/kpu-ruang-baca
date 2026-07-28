@@ -1,3 +1,4 @@
+//app/admin/buku/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -89,7 +90,7 @@ export default function ManajemenBukuPage() {
   const [filterStok, setFilterStok] = useState("Semua");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const itemsPerPage = 10;
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -616,20 +617,21 @@ export default function ManajemenBukuPage() {
                 </thead>
                 <tbody>
                   {filtered.map((b) => (
-                    <tr key={b.id}>
-                      <td>{b.kodeBuku}</td>
-                      <td>{b.judul}</td>
-                      <td>{b.penulis}</td>
-                      <td>{b.kategori || "-"}</td>
-                      <td>{b.tahun || "-"}</td>
-                      <td>{b.stok}</td>
-                      <td>{b.lokasiRak || "-"}</td>
-                    </tr>
+                  <tr key={b.id}>
+  <td style={{ whiteSpace: "nowrap", minWidth: "70px" }}>
+    {b.kodeBuku}
+  </td>
+  <td>{b.judul}</td>
+  <td>{b.penulis}</td>
+  <td>{b.kategori || "-"}</td>
+  <td>{b.tahun || "-"}</td>
+  <td>{b.stok}</td>
+  <td>{b.lokasiRak || "-"}</td>
+</tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
             {/* MAIN TABLE */}
             <div
               className="overflow-hidden rounded-2xl border animate-fade-up"
@@ -694,15 +696,14 @@ export default function ManajemenBukuPage() {
                         const stockColor = b.stok <= 0 ? C.error : C.primary;
 
                         return (
-                          <tr
-                            key={b.id}
+                          <tr key={b.id}
                             className="transition-colors duration-150 hover:bg-[rgba(118,0,9,0.03)]"
                             style={{
                               borderTop: `1px solid ${C.outlineVariant}`,
                             }}
                           >
                             <td
-                              className="px-6 py-4 font-semibold text-sm"
+                              className="px-6 py-4 font-semibold text-sm whitespace-nowrap"
                               style={{ color: C.primary }}
                             >
                               {b.kodeBuku}

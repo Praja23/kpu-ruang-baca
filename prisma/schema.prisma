@@ -20,6 +20,7 @@ model Buku {
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   imageUrl   String?
+  pdfUrl     String?
   peminjaman Peminjaman[]
 }
 
@@ -29,6 +30,7 @@ model Pengunjung {
   nama             String           @db.VarChar(100)
   alamat           String           @db.VarChar(255)
   noHp             String           @db.VarChar(20)
+  instansi         String?          @db.VarChar(100)
   tujuan           TujuanPengunjung @default(baca_di_tempat)
   tanggalKunjungan DateTime         @default(now())
   createdAt        DateTime         @default(now())
@@ -38,7 +40,8 @@ model Pengunjung {
 model Peminjaman {
   id             Int              @id @default(autoincrement())
   pengunjungId   Int
-  bukuId         Int
+  bukuId         Int?             // ← opsional
+  judulBuku      String?          @db.VarChar(255) // ← SNAPSHOT JUDUL
   tanggalPinjam  DateTime         @default(now())
   durasiJam      Int              @default(2)
   batasWaktu     DateTime
@@ -46,7 +49,7 @@ model Peminjaman {
   tanggalKembali DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  buku           Buku             @relation(fields: [bukuId], references: [id])
+  buku           Buku?            @relation(fields: [bukuId], references: [id], onDelete: SetNull)
   pengunjung     Pengunjung       @relation(fields: [pengunjungId], references: [id])
 }
 
@@ -58,16 +61,16 @@ model Pengaturan {
 }
 
 model Admin {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique @db.VarChar(50)
-  password  String   @db.VarChar(255)
-  nama      String   @db.VarChar(100)
-  email     String?  @db.VarChar(100)
-  imageUrl  String?  // tambahkan ini
-  role      Role     @default(admin)
+  id         Int      @id @default(autoincrement())
+  username   String   @unique @db.VarChar(50)
+  password   String   @db.VarChar(255)
+  nama       String   @db.VarChar(100)
+  email      String?  @db.VarChar(100)
+  imageUrl   String?
+  role       Role     @default(admin)
   lastReadAt DateTime? @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 enum TujuanPengunjung {
