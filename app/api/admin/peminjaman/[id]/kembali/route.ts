@@ -39,11 +39,13 @@ export async function PUT(
       },
     });
 
-    // Update stok buku (tambah 1)
-    await prisma.buku.update({
-      where: { id: existing.bukuId },
-      data: { stok: { increment: 1 } },
-    });
+    // ✅ Update stok hanya jika bukuId tidak null (buku belum dihapus)
+    if (existing.bukuId !== null) {
+      await prisma.buku.update({
+        where: { id: existing.bukuId },
+        data: { stok: { increment: 1 } },
+      });
+    }
 
     return NextResponse.json({
       success: true,
