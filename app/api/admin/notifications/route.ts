@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
     }
     const userId = payload.userId as number;
 
-    // Ambil admin lengkap (tanpa select) agar field lastReadAt tersedia
     const admin = await prisma.admin.findUnique({
       where: { id: userId },
     });
@@ -23,27 +22,17 @@ export async function GET(request: NextRequest) {
     }
 
     const lastReadAt = admin.lastReadAt || new Date(0);
-
     const limit = 10;
 
-    // Ambil notifikasi yang dibuat SETELAH lastReadAt
     const bukuTerbaru = await prisma.buku.findMany({
-      where: {
-        createdAt: { gte: lastReadAt },
-      },
+      where: { createdAt: { gte: lastReadAt } },
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: {
-        id: true,
-        judul: true,
-        createdAt: true,
-      },
+      select: { id: true, judul: true, createdAt: true },
     });
 
     const peminjamanTerbaru = await prisma.peminjaman.findMany({
-      where: {
-        createdAt: { gte: lastReadAt },
-      },
+      where: { createdAt: { gte: lastReadAt } },
       orderBy: { createdAt: "desc" },
       take: 5,
       include: {
@@ -53,16 +42,10 @@ export async function GET(request: NextRequest) {
     });
 
     const pengunjungTerbaru = await prisma.pengunjung.findMany({
-      where: {
-        createdAt: { gte: lastReadAt },
-      },
+      where: { createdAt: { gte: lastReadAt } },
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: {
-        id: true,
-        nama: true,
-        createdAt: true,
-      },
+      select: { id: true, nama: true, createdAt: true },
     });
 
     const notifications: {
@@ -85,7 +68,7 @@ export async function GET(request: NextRequest) {
       notifications.push({
         id: `pinjam-${p.id}`,
         title: "Peminjaman Baru",
-        desc: `${p.pengunjung.nama} meminjam "${p.buku.judul}"`,
+        desc: `${p.pengunjung.nama} meminjam "${p.buku?.judul || "Buku telah dihapus"}"`,
         time: p.createdAt.toISOString(),
       });
     });
