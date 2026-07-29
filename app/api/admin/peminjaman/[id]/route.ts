@@ -53,6 +53,7 @@ export async function PUT(
 
     const existing = await prisma.peminjaman.findUnique({
       where: { id: peminjamanId },
+      include: { buku: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -63,8 +64,9 @@ export async function PUT(
 
     const updateData: any = {};
     const now = new Date();
+    const oldStatus = existing.status;
 
-    // Jika admin mengirim batasWaktu, proses status otomatis
+    // 🔥 1. Tentukan status dan batasWaktu baru
     if (batasWaktu) {
       const newBatasWaktu = new Date(batasWaktu);
       updateData.batasWaktu = newBatasWaktu;
@@ -89,7 +91,6 @@ export async function PUT(
       }
     }
 
-    // Jika admin mengirim status manual (tanpa batasWaktu)
     if (status && !batasWaktu) {
       updateData.status = status;
       if (status === "kembali") {
@@ -99,11 +100,49 @@ export async function PUT(
       }
     }
 
-    // Jaga-jaga jika status jadi kembali tapi tanggalKembali null
     if (updateData.status === "kembali" && !updateData.tanggalKembali) {
       updateData.tanggalKembali = new Date();
     }
 
+    // 🔥 2. Logika stok berdasarkan perubahan status
+    const newStatus = updateData.status || existing.status;
+    const isReturnToBorrow =
+      oldStatus === "kembali" && newStatus === "dipinjam";
+    const isBorrowToReturn =
+      oldStatus === "dipinjam" && newStatus === "kembali";
+
+    if (existing.bukuId) {
+      if (isReturnToBorrow) {
+        // Perpanjangan: stok harus berkurang
+        const buku = await prisma.buku.findUnique({
+          where: { id: existing.bukuId },
+        });
+        if (!buku) {
+          return NextResponse.json(
+            { error: "Buku tidak ditemukan" },
+            { status: 404 },
+          );
+        }
+        if (buku.stok <= 0) {
+          return NextResponse.json(
+            { error: "Stok buku habis, tidak dapat memperpanjang peminjaman" },
+            { status: 400 },
+          );
+        }
+        await prisma.buku.update({
+          where: { id: existing.bukuId },
+          data: { stok: { decrement: 1 } },
+        });
+      } else if (isBorrowToReturn) {
+        // Pengembalian via edit: stok bertambah
+        await prisma.buku.update({
+          where: { id: existing.bukuId },
+          data: { stok: { increment: 1 } },
+        });
+      }
+    }
+
+    // 🔥 3. Update peminjaman
     const updated = await prisma.peminjaman.update({
       where: { id: peminjamanId },
       data: updateData,
@@ -127,7 +166,6 @@ export async function PUT(
   }
 }
 
-// ✅ TAMBAHKAN DELETE
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -153,7 +191,6 @@ export async function DELETE(
       );
     }
 
-    // 🔥 KEMBALIKAN STOK BUKU JIKA STATUSNYA DIPINJAM ATAU TERLAMBAT
     if (
       existing.bukuId &&
       (existing.status === "dipinjam" || existing.status === "terlambat")
@@ -164,7 +201,6 @@ export async function DELETE(
       });
     }
 
-    // Hapus peminjaman
     await prisma.peminjaman.delete({
       where: { id: peminjamanId },
     });
