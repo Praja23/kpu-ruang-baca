@@ -51,6 +51,7 @@ export async function PUT(
     const body = await request.json();
     const { batasWaktu, status } = body;
 
+    // 1. Ambil data peminjaman yang ada (termasuk relasi buku)
     const existing = await prisma.peminjaman.findUnique({
       where: { id: peminjamanId },
       include: { buku: true },
@@ -62,61 +63,69 @@ export async function PUT(
       );
     }
 
-    const updateData: any = {};
-    const now = new Date();
-    const oldStatus = existing.status;
+    // 2. Tentukan status baru
+    // Prioritas: status manual > batasWaktu
+    let newStatus: string | undefined;
+    let newBatasWaktu: Date | undefined;
+    let newTanggalKembali: Date | null | undefined;
 
-    // 🔥 1. Tentukan status dan batasWaktu baru
-    if (batasWaktu) {
-      const newBatasWaktu = new Date(batasWaktu);
-      updateData.batasWaktu = newBatasWaktu;
-
+    if (status) {
+      // Jika ada status manual, pakai itu
+      newStatus = status;
+      if (status === "kembali") {
+        newTanggalKembali = new Date();
+      } else {
+        newTanggalKembali = null;
+      }
+      // batasWaktu bisa tetap atau diupdate jika dikirim
+      if (batasWaktu) {
+        newBatasWaktu = new Date(batasWaktu);
+      } else {
+        newBatasWaktu = existing.batasWaktu;
+      }
+    } else if (batasWaktu) {
+      // Jika tidak ada status manual, tentukan dari batasWaktu
+      newBatasWaktu = new Date(batasWaktu);
+      const now = new Date();
       if (existing.status === "kembali") {
         if (newBatasWaktu > now) {
-          updateData.status = "dipinjam";
-          updateData.tanggalKembali = null;
+          newStatus = "dipinjam";
+          newTanggalKembali = null;
         } else {
-          updateData.status = "terlambat";
-          updateData.tanggalKembali = null;
+          newStatus = "terlambat";
+          newTanggalKembali = null;
         }
       } else {
+        // status sebelumnya dipinjam/terlambat
         if (newBatasWaktu < now) {
-          updateData.status = "terlambat";
+          newStatus = "terlambat";
         } else {
-          updateData.status = "dipinjam";
+          newStatus = "dipinjam";
         }
-        if (updateData.status !== "kembali") {
-          updateData.tanggalKembali = null;
+        if (newStatus !== "kembali") {
+          newTanggalKembali = null;
         }
       }
+    } else {
+      // Tidak ada perubahan status atau batasWaktu
+      return NextResponse.json(
+        { error: "Tidak ada perubahan yang diminta" },
+        { status: 400 },
+      );
     }
 
-    if (status && !batasWaktu) {
-      updateData.status = status;
-      if (status === "kembali") {
-        updateData.tanggalKembali = new Date();
-      } else {
-        updateData.tanggalKembali = null;
-      }
-    }
+    // 3. Validasi: jika newStatus = "dipinjam" dan bukuId ada, cek stok
+    const oldStatus = existing.status;
+    const bukuId = existing.bukuId;
 
-    if (updateData.status === "kembali" && !updateData.tanggalKembali) {
-      updateData.tanggalKembali = new Date();
-    }
+    // Log untuk debug
+    console.log(`[DEBUG PUT] oldStatus=${oldStatus}, newStatus=${newStatus}, bukuId=${bukuId}`);
 
-    // 🔥 2. Logika stok berdasarkan perubahan status
-    const newStatus = updateData.status || existing.status;
-    const isReturnToBorrow =
-      oldStatus === "kembali" && newStatus === "dipinjam";
-    const isBorrowToReturn =
-      oldStatus === "dipinjam" && newStatus === "kembali";
-
-    if (existing.bukuId) {
-      if (isReturnToBorrow) {
-        // Perpanjangan: stok harus berkurang
-        const buku = await prisma.buku.findUnique({
-          where: { id: existing.bukuId },
-        });
+    // 🔥 4. Logika stok: hanya jika bukuId ada dan status berubah
+    if (bukuId !== null) {
+      // a. Dari kembali -> dipinjam : stok -1
+      if (oldStatus === "kembali" && newStatus === "dipinjam") {
+        const buku = await prisma.buku.findUnique({ where: { id: bukuId } });
         if (!buku) {
           return NextResponse.json(
             { error: "Buku tidak ditemukan" },
@@ -130,19 +139,34 @@ export async function PUT(
           );
         }
         await prisma.buku.update({
-          where: { id: existing.bukuId },
+          where: { id: bukuId },
           data: { stok: { decrement: 1 } },
         });
-      } else if (isBorrowToReturn) {
-        // Pengembalian via edit: stok bertambah
+        console.log(`[DEBUG] Stok dikurangi 1, stok sekarang ${buku.stok - 1}`);
+      }
+
+      // b. Dari dipinjam/terlambat -> kembali : stok +1
+      if ((oldStatus === "dipinjam" || oldStatus === "terlambat") && newStatus === "kembali") {
         await prisma.buku.update({
-          where: { id: existing.bukuId },
+          where: { id: bukuId },
           data: { stok: { increment: 1 } },
         });
+        console.log(`[DEBUG] Stok ditambah 1`);
       }
+
+      // c. Dari dipinjam -> terlambat : stok tetap (tidak berubah)
+      // d. Dari terlambat -> dipinjam : stok tetap
+      // e. Dari kembali -> terlambat? tidak mungkin karena kembali sudah selesai, tapi kita biarkan
+    } else {
+      console.log(`[DEBUG] bukuId null, lewati update stok`);
     }
 
-    // 🔥 3. Update peminjaman
+    // 5. Update data peminjaman
+    const updateData: any = {};
+    if (newStatus !== undefined) updateData.status = newStatus;
+    if (newBatasWaktu !== undefined) updateData.batasWaktu = newBatasWaktu;
+    if (newTanggalKembali !== undefined) updateData.tanggalKembali = newTanggalKembali;
+
     const updated = await prisma.peminjaman.update({
       where: { id: peminjamanId },
       data: updateData,
@@ -179,9 +203,7 @@ export async function DELETE(
 
     const existing = await prisma.peminjaman.findUnique({
       where: { id: peminjamanId },
-      include: {
-        buku: true,
-      },
+      include: { buku: true },
     });
 
     if (!existing) {
@@ -191,6 +213,7 @@ export async function DELETE(
       );
     }
 
+    // Kembalikan stok jika status masih dipinjam atau terlambat
     if (
       existing.bukuId &&
       (existing.status === "dipinjam" || existing.status === "terlambat")
