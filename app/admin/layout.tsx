@@ -251,11 +251,10 @@ function Sidebar({
       >
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0 shadow-md"
-          style={{ background: C.primary }}
         >
           <img
-            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8wtweayWAJbLrAS-35eWBgjCkYEgILi0bCjHiIEIpmw&s=10"
-            alt="KPU"
+            src="https://jdih.gunungmaskab.go.id/wp-content/uploads/2021/06/logo-awal-jdihn-small.png"
+            alt="Logo JDIH KPU"
             className="w-full h-full object-cover"
           />
         </div>

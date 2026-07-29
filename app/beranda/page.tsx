@@ -460,9 +460,9 @@ export default function BerandaPage() {
             <Link href="/beranda" className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-sm">
                 <img
-                  alt="KPU Logo"
+                  alt="Logo JDIH KPU Kalimantan Tengah"
                   className="w-8 h-8 object-contain"
-                  src="https://kalteng.kpu.go.id/assets/img/logo-kpu.png"
+                  src="https://jdih.gunungmaskab.go.id/wp-content/uploads/2021/06/logo-awal-jdihn-small.png"
                 />
               </div>
               <h1

@@ -379,14 +379,14 @@ export default function LoginPage() {
             <div className="brand-content">
               <div className="brand-header">
                 <img
-                  alt="Logo KPU"
-                  src="https://kalteng.kpu.go.id/assets/img/logo-kpu.png"
+                  alt="Logo JDIH KPU Kalimantan Tengah"
+                  src="https://jdih.gunungmaskab.go.id/wp-content/uploads/2021/06/logo-awal-jdihn-small.png"
                 />
                 <div className="brand-divider" />
                 <div>
                   <div className="brand-title">Ruang Baca JDIH</div>
                   <div className="brand-subtitle">
-                     KPU Provinsi Kalimantan Tengah
+                    KPU Provinsi Kalimantan Tengah
                   </div>
                 </div>
               </div>
