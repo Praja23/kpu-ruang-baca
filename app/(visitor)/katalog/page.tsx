@@ -352,7 +352,7 @@ export default function KatalogPage() {
                 <img
                   alt="KPU"
                   className="w-8 h-8 object-contain"
-                  src="https://kalteng.kpu.go.id/assets/img/logo-kpu.png"
+                  src="https://jdih.gunungmaskab.go.id/wp-content/uploads/2021/06/logo-awal-jdihn-small.png"
                 />
               </div>
               <h1
