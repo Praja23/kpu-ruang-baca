@@ -1,6 +1,8 @@
+// app/api/admin/notifications/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { formatWIB } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   try {
@@ -86,15 +88,10 @@ export async function GET(request: NextRequest) {
       return new Date(b.time).getTime() - new Date(a.time).getTime();
     });
 
+    // ✅ Format waktu ke WIB
     const hasil = notifications.slice(0, limit).map((n) => ({
       ...n,
-      time: new Date(n.time).toLocaleString("id-ID", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      time: formatWIB(n.time),
     }));
 
     return NextResponse.json({ success: true, data: hasil });

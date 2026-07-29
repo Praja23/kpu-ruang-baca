@@ -119,7 +119,9 @@ export async function PUT(
     const bukuId = existing.bukuId;
 
     // Log untuk debug
-    console.log(`[DEBUG PUT] oldStatus=${oldStatus}, newStatus=${newStatus}, bukuId=${bukuId}`);
+    console.log(
+      `[DEBUG PUT] oldStatus=${oldStatus}, newStatus=${newStatus}, bukuId=${bukuId}`,
+    );
 
     // 🔥 4. Logika stok: hanya jika bukuId ada dan status berubah
     if (bukuId !== null) {
@@ -146,7 +148,10 @@ export async function PUT(
       }
 
       // b. Dari dipinjam/terlambat -> kembali : stok +1
-      if ((oldStatus === "dipinjam" || oldStatus === "terlambat") && newStatus === "kembali") {
+      if (
+        (oldStatus === "dipinjam" || oldStatus === "terlambat") &&
+        newStatus === "kembali"
+      ) {
         await prisma.buku.update({
           where: { id: bukuId },
           data: { stok: { increment: 1 } },
@@ -165,7 +170,8 @@ export async function PUT(
     const updateData: any = {};
     if (newStatus !== undefined) updateData.status = newStatus;
     if (newBatasWaktu !== undefined) updateData.batasWaktu = newBatasWaktu;
-    if (newTanggalKembali !== undefined) updateData.tanggalKembali = newTanggalKembali;
+    if (newTanggalKembali !== undefined)
+      updateData.tanggalKembali = newTanggalKembali;
 
     const updated = await prisma.peminjaman.update({
       where: { id: peminjamanId },

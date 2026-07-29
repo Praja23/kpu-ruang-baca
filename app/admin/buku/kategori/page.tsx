@@ -128,7 +128,7 @@ export default function KategoriPage() {
     kategori.length > 0
       ? [...kategori].sort((a, b) => b.jumlahBuku - a.jumlahBuku)[0]
       : null;
-  const totalRak = totalKategori;
+  const totalRak = 3;
 
   // ======== HANDLE ADD ========
   const handleAdd = async () => {
