@@ -386,14 +386,14 @@ export default function LoginPage() {
                 <div>
                   <div className="brand-title">Ruang Baca JDIH</div>
                   <div className="brand-subtitle">
-                    Sistem Perpustakaan Resmi
+                     KPU Provinsi Kalimantan Tengah
                   </div>
                 </div>
               </div>
               <h1 className="brand-h1">Akses Administratif Aman</h1>
               <p className="brand-p">
                 Akses portal manajemen terpusat untuk dokumen hukum dan catatan
-                perpustakaan Komisi Pemilihan Umum.
+                JDIH Komisi Pemilihan Umum Kalimantan Tengah.
               </p>
             </div>
 

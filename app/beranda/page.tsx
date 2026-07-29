@@ -1845,7 +1845,7 @@ export default function BerandaPage() {
                 Ruang Baca JDIH
               </span>
               <p className="text-xs mt-1 opacity-80">
-                © 2024 JDIH KPU Provinsi Kalimantan Tengah. Seluruh Hak Cipta
+                © 2026 JDIH KPU Provinsi Kalimantan Tengah. Seluruh Hak Cipta
                 Dilindungi.
               </p>
             </div>
