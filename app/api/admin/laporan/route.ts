@@ -3,14 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNowWIB, formatWIB } from "@/lib/date";
 
-// Helper untuk mendapatkan awal hari dalam WIB
 function startOfDayWIB(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
-// Helper untuk mendapatkan akhir hari dalam WIB
 function endOfDayWIB(date: Date): Date {
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
@@ -28,11 +26,9 @@ export async function GET(request: NextRequest) {
     let start: Date, end: Date;
 
     if (startDate && endDate) {
-      // ✅ Konversi ke WIB
       start = new Date(startDate + "T00:00:00+07:00");
       end = new Date(endDate + "T23:59:59+07:00");
     } else {
-      // Default: 30 hari terakhir dalam WIB
       end = endOfDayWIB(nowWIB);
       start = new Date(end);
       start.setDate(start.getDate() - 30);
@@ -41,19 +37,30 @@ export async function GET(request: NextRequest) {
 
     // === SUMMARY ===
     const totalPengunjung = await prisma.pengunjung.count({
+      where: { tanggalKunjungan: { gte: start, lte: end } },
+    });
+
+    const totalTransaksi = await prisma.peminjaman.count({
+      where: { createdAt: { gte: start, lte: end } },
+    });
+
+    const totalKembali = await prisma.peminjaman.count({
       where: {
-        tanggalKunjungan: { gte: start, lte: end },
+        status: "kembali",
+        createdAt: { gte: start, lte: end },
       },
     });
 
-    // ... (summary lainnya sama)
+    const rasioPengembalian =
+      totalTransaksi > 0
+        ? Math.round((totalKembali / totalTransaksi) * 100)
+        : 0;
 
-    // === CHART: HARIAN (7 hari terakhir dalam WIB) ===
+    // === CHART: HARIAN ===
     const dailyLabels: string[] = [];
     const dailyValues: number[] = [];
     const todayWIB = startOfDayWIB(nowWIB);
 
-    // Cari hari Senin terakhir dalam WIB
     let currentDay = new Date(todayWIB);
     while (currentDay.getDay() !== 1) {
       currentDay.setDate(currentDay.getDate() - 1);
@@ -65,7 +72,6 @@ export async function GET(request: NextRequest) {
       const dayStart = startOfDayWIB(d);
       const dayEnd = endOfDayWIB(d);
 
-      // ✅ Konversi ke UTC untuk query database
       const count = await prisma.pengunjung.count({
         where: {
           tanggalKunjungan: {
@@ -84,11 +90,10 @@ export async function GET(request: NextRequest) {
       dailyValues.push(count);
     }
 
-    // === CHART: MINGGUAN (4 minggu terakhir dalam WIB) ===
+    // === CHART: MINGGUAN ===
     const weeklyLabels: string[] = [];
     const weeklyValues: number[] = [];
 
-    // Cari hari Senin minggu ini dalam WIB
     let monday = new Date(todayWIB);
     while (monday.getDay() !== 1) {
       monday.setDate(monday.getDate() - 1);
@@ -115,7 +120,7 @@ export async function GET(request: NextRequest) {
       weeklyValues.push(count);
     }
 
-    // === CHART: BULANAN (12 bulan terakhir dalam WIB) ===
+    // === CHART: BULANAN ===
     const monthlyLabels: string[] = [];
     const monthlyValues: number[] = [];
     const startMonth = new Date(nowWIB.getFullYear(), 0, 1);
@@ -152,7 +157,7 @@ export async function GET(request: NextRequest) {
       monthlyValues.push(count);
     }
 
-    // === CHART: TAHUNAN (5 tahun terakhir dalam WIB) ===
+    // === CHART: TAHUNAN ===
     const yearlyLabels: string[] = [];
     const yearlyValues: number[] = [];
     const currentYear = nowWIB.getFullYear();
@@ -175,7 +180,7 @@ export async function GET(request: NextRequest) {
       yearlyValues.push(count);
     }
 
-    // === DONUT (tetap pakai filter range) ===
+    // === DONUT ===
     const bacaDiTempat = await prisma.pengunjung.count({
       where: {
         tujuan: "baca_di_tempat",
@@ -189,6 +194,25 @@ export async function GET(request: NextRequest) {
         tanggalKunjungan: { gte: start, lte: end },
       },
     });
+
+    // === POPULAR CATEGORIES ===
+    const allPeminjaman = await prisma.peminjaman.findMany({
+      where: { createdAt: { gte: start, lte: end } },
+      include: { buku: { select: { kategori: true } } },
+    });
+
+    const kategoriCount: Record<string, number> = {};
+    for (const p of allPeminjaman) {
+      const kategori = p.buku?.kategori;
+      if (kategori) {
+        kategoriCount[kategori] = (kategoriCount[kategori] || 0) + 1;
+      }
+    }
+
+    const topCategories = Object.entries(kategoriCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
 
     // === AKTIVITAS TERBARU ===
     const activities = await prisma.peminjaman.findMany({
@@ -271,10 +295,8 @@ export async function GET(request: NextRequest) {
           totalPeminjaman: await prisma.peminjaman.count({
             where: { status: "dipinjam", createdAt: { gte: start, lte: end } },
           }),
-          totalTransaksi: await prisma.peminjaman.count({
-            where: { createdAt: { gte: start, lte: end } },
-          }),
-          rasioPengembalian: 0, // bisa dihitung ulang
+          totalTransaksi,
+          rasioPengembalian,
         },
         chart: {
           daily: { labels: dailyLabels, values: dailyValues },
@@ -286,7 +308,7 @@ export async function GET(request: NextRequest) {
           bacaDiTempat,
           bawaKeluar,
         },
-        popularCategories: [], // hitung jika perlu
+        popularCategories: topCategories,
         activities: formattedActivities,
         visitors: formattedVisitors,
         period: {
